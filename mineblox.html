@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MineBlox - Yaka Kartları Portalı</title>
+  <!-- PDF ve Canvas Kütüphaneleri -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #0b0f19; color: #f8fafc; padding-bottom: 2rem; }
+
+    header {
+      background: #111827;
+      padding: 1.2rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #38bdf8;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    h1 { font-size: 1.5rem; color: #38bdf8; letter-spacing: 1px; }
+
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    
+    .btn-admin { background: #ef4444; color: white; }
+    .btn-admin:hover { background: #dc2626; }
+
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+
+    /* Yatay Yaka Kartı Tasarımı */
+    .card {
+      display: flex;
+      width: 100%;
+      height: 180px;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+      border: 2px solid rgba(255,255,255,0.1);
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover { transform: translateY(-4px); }
+
+    /* Sol Fotoğraf Alanı (Kare Kutu) */
+    .card-photo-box {
+      width: 180px;
+      height: 100%;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 2px solid rgba(255,255,255,0.2);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .card-photo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Sağ Bilgi Alanı */
+    .card-info-box {
+      flex: 1;
+      height: 100%;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    .card-info-box .card-name {
+      font-size: 1.5rem;
+      font-weight: 900;
+      margin-bottom: 0.2rem;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .card-info-box .card-desc {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-bottom: 0.8rem;
+    }
+
+    .card-info-box .card-role {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    /* Role Göre Arka Plan Renkleri */
+    .bg-baskan { background: linear-gradient(135deg, #1d4ed8, #2563eb); color: #ffffff; }
+    .bg-videolar { background: linear-gradient(135deg, #dc2626, #ef4444); color: #ffffff; }
+    .bg-sponsorluk { background: linear-gradient(135deg, #eab308, #facc15); color: #1e293b; }
+    .bg-discord { background: linear-gradient(135deg, #15803d, #22c55e); color: #ffffff; }
+    .bg-diger { background: linear-gradient(135deg, #475569, #64748b); color: #ffffff; }
+
+    /* Modallar */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 550px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.4rem; color: #cbd5e1; font-size: 0.9rem; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #1f2937;
+      color: white;
+    }
+
+    .error-msg {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      padding: 0.5rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      display: none;
+    }
+
+    .crop-preview-box {
+      margin-top: 0.8rem;
+      display: none;
+      text-align: center;
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .crop-preview-box img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+
+    .admin-list { margin-top: 1.5rem; border-top: 1px solid #374151; padding-top: 1rem; }
+    .admin-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid #374151;
+      font-size: 0.9rem;
+    }
+
+    .btn-action { padding: 0.38rem 0.6rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.78rem; font-weight: bold; }
+    .btn-pdf { background: #0284c7; color: white; }
+    .btn-edit { background: #f59e0b; color: white; }
+    .btn-delete { background: #ef4444; color: white; }
+    .btn-cancel { background: #64748b; color: white; }
+    .btn-submit { background: #22c55e; color: white; }
+    .btn-crop { background: #38bdf8; color: #0f172a; margin-top: 0.4rem; }
+
+    /* PDF Birebir Ölçek Alanı */
+    #pdfRenderArea {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      width: 856px;
+      height: 540px;
+    }
+    
+    #pdfCard {
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      border: none;
+    }
+
+    #pdfCard .card-photo-box {
+      width: 540px;
+      height: 540px;
+    }
+
+    #pdfCard .card-name { font-size: 3.5rem !important; }
+    #pdfCard .card-desc { font-size: 1.8rem !important; margin-bottom: 1.5rem !important; }
+    #pdfCard .card-role { font-size: 2.2rem !important; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>MineBlox Kişiler Portalı</h1>
+    <button class="btn btn-admin" onclick="openLoginModal()">Admin Paneli</button>
+  </header>
+
+  <div class="container">
+    <div id="cardsContainer" class="cards-grid"></div>
+  </div>
+
+  <!-- Şifre Giriş Modalı -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <h2>Admin Girişi</h2>
+      <br>
+      <div id="loginError" class="error-msg">Hatalı şifre! Lütfen tekrar deneyin.</div>
+      <div class="form-group">
+        <label>Admin Şifresi:</label>
+        <input type="password" id="adminPasswordInput" placeholder="Şifre giriniz...">
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-submit" onclick="verifyPassword()">Giriş Yap</button>
+        <button class="btn btn-cancel" onclick="closeLoginModal()">İptal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Paneli Modalı -->
+  <div id="adminPanelModal" class="modal">
+    <div class="modal-content">
+      <h2 id="formTitle">Yaka Kartı Ekle</h2>
+      <br>
+      <form id="cardForm" onsubmit="handleFormSubmit(event)">
+        <input type="hidden" id="editId">
+        <input type="hidden" id="croppedPhotoData">
+        
+        <div class="form-group">
+          <label>Ad Soyad *</label>
+          <input type="text" id="name" required placeholder="Örn: Tolga Oruç">
+        </div>
+
+        <div class="form-group">
+          <label>Rol *</label>
+          <select id="role" required onchange="handleRoleChange()">
+            <option value="Başkan">Başkan (Mavi)</option>
+            <option value="Videolara Katılan">Videolara Katılan (Kırmızı)</option>
+            <option value="Sponsorluk">Sponsorluk (Sarı)</option>
+            <option value="Discord Yardımcısı">Discord Yardımcısı (Yeşil)</option>
+            <option value="Diğer">Diğer (Gri)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="customRoleGroup" style="display: none;">
+          <label>Özel Rol Adı</label>
+          <input type="text" id="customRole" placeholder="Örn: Moderatör">
+        </div>
+
+        <div class="form-group">
+          <label>Açıklama</label>
+          <input type="text" id="info" placeholder="Örn: Kurucu">
+        </div>
+
+        <div class="form-group">
+          <label>Fotoğraf (İsteğe Bağlı)</label>
+          <input type="file" id="photo" accept="image/*" onchange="handleFileSelect(event)">
+          
+          <div id="cropPreviewBox" class="crop-preview-box">
+            <img id="rawImagePreview" src="" alt="Önizleme">
+            <br>
+            <button type="button" class="btn btn-action btn-crop" onclick="cropToSquare()">1:1 Kareye Kırp</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="btn btn-submit" id="submitBtn">Ekle</button>
+          <button type="button" class="btn btn-cancel" onclick="resetForm()">Temizle</button>
+          <button type="button" class="btn btn-cancel" style="margin-left: auto;" onclick="closeAdminPanel()">Kapat</button>
+        </div>
+      </form>
+
+      <div class="admin-list">
+        <h3>Tüm Kişiler (Admin Özel PDF İndir)</h3>
+        <br>
+        <div id="adminItemsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gizli PDF Oluşturma Şablonu -->
+  <div id="pdfRenderArea">
+    <div id="pdfCard" class="card">
+      <div class="card-photo-box">
+        <img id="pdfPhoto" src="" alt="Fotoğraf">
+      </div>
+      <div id="pdfInfoBox" class="card-info-box">
+        <div id="pdfName" class="card-name"></div>
+        <div id="pdfInfo" class="card-desc"></div>
+        <div id="pdfRole" class="card-role"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_PASS = "2016";
+    const DEFAULT_PHOTO = "https://via.placeholder.com/150/374151/ffffff?text=FOTO";
+
+    let cards = JSON.parse(localStorage.getItem('mineblox_kartlar_v8')) || [
+      { id: '1', name: 'TOLGA ORUÇ', role: 'Başkan', customRole: '', info: 'Kurucu', photo: '' }
+    ];
+
+    function saveAndRender() {
+      localStorage.setItem('mineblox_kartlar_v8', JSON.stringify(cards));
+      renderCards();
+      renderAdminList();
+    }
+
+    function getRoleBgClass(role) {
+      switch(role) {
+        case 'Başkan': return 'bg-baskan';
+        case 'Videolara Katılan': return 'bg-videolar';
+        case 'Sponsorluk': return 'bg-sponsorluk';
+        case 'Discord Yardımcısı': return 'bg-discord';
+        default: return 'bg-diger';
+      }
+    }
+
+    function handleRoleChange() {
+      const role = document.getElementById('role').value;
+      const customGroup = document.getElementById('customRoleGroup');
+      if (role === 'Diğer') {
+        customGroup.style.display = 'block';
+      } else {
+        customGroup.style.display = 'none';
+        document.getElementById('customRole').value = '';
+      }
+    }
+
+    function handleFileSelect(evt) {
+      const file = evt.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const rawImg = document.getElementById('rawImagePreview');
+          rawImg.src = e.target.result;
+          document.getElementById('cropPreviewBox').style.display = 'block';
+          document.getElementById('croppedPhotoData').value = ''; 
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function cropToSquare() {
+      const rawImg = document.getElementById('rawImagePreview');
+      if (!rawImg.src) return;
+
+      const img = new Image();
+      img.src = rawImg.src;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const side = Math.min(img.width, img.height);
+        canvas.width = side;
+        canvas.height = side;
+
+        const ctx = canvas.getContext('2d');
+        const startX = (img.width - side) / 2;
+        const startY = (img.height - side) / 2;
+
+        ctx.drawImage(img, startX, startY, side, side, 0, 0, side, side);
+        const croppedData = canvas.toDataURL('image/png');
+        
+        document.getElementById('croppedPhotoData').value = croppedData;
+        rawImg.src = croppedData;
+        alert('Fotoğraf 1:1 kare formatına kırpıldı!');
+      };
+    }
+
+    function renderCards() {
+      const container = document.getElementById('cardsContainer');
+      container.innerHTML = '';
+
+      cards.forEach(card => {
+        const bgClass = getRoleBgClass(card.role);
+        const displayRole = card.role === 'Diğer' && card.customRole ? card.customRole : card.role;
+        const cardEl = document.createElement('div');
+        cardEl.className = `card ${bgClass}`;
+        cardEl.innerHTML = `
+          <div class="card-photo-box">
+            <img src="${card.photo || DEFAULT_PHOTO}" alt="${card.name}">
+          </div>
+          <div class="card-info-box">
+            <div class="card-name">${card.name}</div>
+            <div class="card-desc">${card.info || ''}</div>
+            <div class="card-role">${displayRole}</div>
+          </div>
+        `;
+        container.appendChild(cardEl);
+      });
+    }
+
+    function renderAdminList() {
+      const listEl = document.getElementById('adminItemsList');
+      listEl.innerHTML = '';
+
+      cards.forEach(card => {
+        const displayRole = card.role === 'Diğer' && card.customRole ? card.customRole : card.role;
+        const itemEl = document.createElement('div');
+        itemEl.className = 'admin-item';
+        itemEl.innerHTML = `
+          <div>
+            <strong>${card.name}</strong> (${displayRole})
+          </div>
+          <div style="display: flex; gap: 0.3rem;">
+            <button class="btn-action btn-pdf" onclick="generatePersonPDF('${card.id}')">PDF İndir</button>
+            <button class="btn-action btn-edit" onclick="editCard('${card.id}')">Düzenle</button>
+            <button class="btn-action btn-delete" onclick="deleteCard('${card.id}')">Sil</button>
+          </div>
+        `;
+        listEl.appendChild(itemEl);
+      });
+    }
+
+    function openLoginModal() {
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('adminPasswordInput').value = '';
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').style.display = 'none';
+    }
+
+    function verifyPassword() {
+      const pass = document.getElementById('adminPasswordInput').value;
+      if (pass === ADMIN_PASS) {
+        closeLoginModal();
+        document.getElementById('adminPanelModal').style.display = 'flex';
+        renderAdminList();
+      } else {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+
+    function closeAdminPanel() {
+      document.getElementById('adminPanelModal').style.display = 'none';
+      resetForm();
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      
+      const editId = document.getElementById('editId').value;
+      const name = document.getElementById('name').value;
+      const role = document.getElementById('role').value;
+      const customRole = document.getElementById('customRole').value;
+      const info = document.getElementById('info').value;
+      const croppedPhotoData = document.getElementById('croppedPhotoData').value;
+      const photoInput = document.getElementById('photo');
+
+      const saveCardData = (photoUrl) => {
+        if (editId) {
+          const idx = cards.findIndex(c => c.id === editId);
+          if (idx !== -1) {
+            cards[idx] = {
+              ...cards[idx],
+              name,
+              role,
+              customRole,
+              info,
+              photo: photoUrl !== null ? photoUrl : cards[idx].photo
+            };
+          }
+        } else {
+          cards.push({
+            id: Date.now().toString(),
+            name,
+            role,
+            customRole,
+            info,
+            photo: photoUrl || ''
+          });
+        }
+        saveAndRender();
+        resetForm();
+      };
+
+      if (croppedPhotoData) {
+        saveCardData(croppedPhotoData);
+      } else if (photoInput.files && photoInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (evt) => saveCardData(evt.target.result);
+        reader.readAsDataURL(photoInput.files[0]);
+      } else {
+        saveCardData(null);
+      }
+    }
+
+    function editCard(id) {
+      const card = cards.find(c => c.id === id);
+      if (card) {
+        document.getElementById('editId').value = card.id;
+        document.getElementById('name').value = card.name;
+        document.getElementById('role').value = card.role;
+        handleRoleChange();
+        document.getElementById('customRole').value = card.customRole || '';
+        document.getElementById('info').value = card.info || '';
+        document.getElementById('formTitle').innerText = 'Kişi Düzenle';
+        document.getElementById('submitBtn').innerText = 'Güncelle';
+        
+        if (card.photo) {
+          document.getElementById('rawImagePreview').src = card.photo;
+          document.getElementById('cropPreviewBox').style.display = 'block';
+          document.getElementById('croppedPhotoData').value = card.photo;
+        }
+      }
+    }
+
+    function deleteCard(id) {
+      cards = cards.filter(c => c.id !== id);
+      saveAndRender();
+    }
+
+    function resetForm() {
+      document.getElementById('cardForm').reset();
+      document.getElementById('editId').value = '';
+      document.getElementById('croppedPhotoData').value = '';
+      document.getElementById('formTitle').innerText = 'Yaka Kartı Ekle';
+      document.getElementById('submitBtn').innerText = 'Ekle';
+      document.getElementById('cropPreviewBox').style.display = 'none';
+      handleRoleChange();
+    }
+
+    async function generatePersonPDF(id) {
+      const card = cards.find(c => c.id === id);
+      if (!card) return;
+
+      const pdfCard = document.getElementById('pdfCard');
+      const pdfPhoto = document.getElementById('pdfPhoto');
+      const pdfName = document.getElementById('pdfName');
+      const pdfRole = document.getElementById('pdfRole');
+      const pdfInfo = document.getElementById('pdfInfo');
+
+      pdfPhoto.src = card.photo || DEFAULT_PHOTO;
+      pdfName.innerText = card.name;
+      pdfRole.innerText = card.role === 'Diğer' && card.customRole ? card.customRole : card.role;
+      pdfInfo.innerText = card.info || '';
+      
+      pdfCard.className = `card ${getRoleBgClass(card.role)}`;
+
+      const targetArea = document.getElementById('pdfRenderArea');
+      
+      try {
+        const canvas = await html2canvas(targetArea, { scale: 3, useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('l', 'mm', [85.6, 54]);
+        pdf.addImage(imgData, 'PNG', 0, 0, 85.6, 54);
+        pdf.save(`${card.name}_MineBlox_YakaKarti.pdf`);
+      } catch (err) {
+        console.error("PDF hatası:", err);
+      }
+    }
+
+    renderCards();
+  </script>
+</body>
+</html>
